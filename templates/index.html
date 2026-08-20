@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS Compiler — DSL Compiler Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+
+<style>
+/* ── ROOT TOKENS ────────────────────────────────────────── */
+:root {
+  --bg:         #050810;
+  --surface:    #0b0f1a;
+  --panel:      #0e1424;
+  --border:     #1a2235;
+  --border2:    #243050;
+  --accent:     #4fffb0;
+  --accent2:    #00c9ff;
+  --warn:       #ff6b6b;
+  --warn-dim:   #ff6b6b33;
+  --txt:        #c8d8f0;
+  --txt-dim:    #4a5a78;
+  --txt-mute:   #2a3550;
+  --keyword:    #c792ea;
+  --number:     #f78c6c;
+  --string:     #c3e88d;
+  --comment:    #546e7a;
+  --label:      #82aaff;
+  --op:         #89ddff;
+  --mono:       'Space Mono', monospace;
+  --sans:       'Syne', sans-serif;
+  --radius:     6px;
+  --glow:       0 0 20px #4fffb022;
+}
+
+/* ── RESET ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--txt);
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── BACKGROUND GRID ────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(79,255,176,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79,255,176,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── HEADER ─────────────────────────────────────────────── */
+header {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex; align-items: center; gap: 12px;
+}
+
+.logo-mark {
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  color: #050810;
+  flex-shrink: 0;
+  box-shadow: 0 0 16px #4fffb055;
+}
+
+.logo-text {
+  font-size: 15px; font-weight: 800; letter-spacing: 3px;
+  color: #fff;
+}
+.logo-sub {
+  font-size: 10px; font-weight: 400; letter-spacing: 2px;
+  color: var(--txt-dim); font-family: var(--mono);
+}
+
+.header-status {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 11px; color: var(--txt-dim);
+}
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--txt-mute);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.status-dot.ok  { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.status-dot.err { background: var(--warn);   box-shadow: 0 0 8px var(--warn); }
+.status-dot.run { background: var(--accent2); box-shadow: 0 0 8px var(--accent2);
+  animation: pulse 0.8s ease-in-out infinite alternate; }
+@keyframes pulse { to { opacity: 0.3; } }
+
+.header-right { display: flex; align-items: center; gap: 20px; }
+.phase-pills { display: flex; gap: 6px; }
+.pill {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 1px;
+  padding: 3px 9px; border-radius: 20px;
+  border: 1px solid var(--border2); color: var(--txt-dim);
+  transition: all 0.25s;
+}
+.pill.active { border-color: var(--accent); color: var(--accent); background: #4fffb011; }
+
+/* ── TOOLBAR ────────────────────────────────────────────── */
+.toolbar {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.toolbar-label {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
+  color: var(--txt-dim); margin-right: 4px;
+}
+
+.snippet-btn {
+  font-family: var(--mono); font-size: 11px;
+  padding: 5px 14px; border-radius: var(--radius);
+  background: transparent; border: 1px solid var(--border2);
+  color: var(--txt-dim); cursor: pointer;
+  transition: all 0.2s;
+}
+.snippet-btn:hover {
+  border-color: var(--accent); color: var(--accent); background: #4fffb00a;
+}
+
+.spacer { flex: 1; }
+
+.compile-btn {
+  font-family: var(--sans); font-size: 13px; font-weight: 700;
+  letter-spacing: 2px;
+  padding: 8px 28px; border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border: none; color: #050810; cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 0 18px #4fffb033;
+  display: flex; align-items: center; gap: 8px;
+}
+.compile-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 24px #4fffb055;
+}
+.compile-btn:active { transform: translateY(0); }
+.compile-btn svg { width: 14px; height: 14px; }
+
+/* ── MAIN LAYOUT ────────────────────────────────────────── */
+.workspace {
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── PANEL ──────────────────────────────────────────────── */
+.pane {
+  display: flex; flex-direction: column;
+  overflow: hidden; min-height: 0;
+}
+.pane:first-child { border-right: 1px solid var(--border); }
+
+.pane-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.pane-title {
+  font-size: 10px; font-weight: 600; letter-spacing: 3px;
+  color: var(--txt-dim); text-transform: uppercase;
+}
+.pane-icon {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--border2);
+}
+.line-count {
+  margin-left: auto; font-family: var(--mono); font-size: 10px;
+  color: var(--txt-mute);
+}
+
+/* ── EDITOR ─────────────────────────────────────────────── */
+.editor-wrap {
+  display: flex; flex: 1; overflow: hidden; min-height: 0;
+}
+
+.line-nums {
+  width: 44px; flex-shrink: 0;
+  padding: 16px 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  user-select: none;
+}
+.line-num {
+  height: 21px; display: flex; align-items: center; justify-content: flex-end;
+  padding-right: 10px;
+  font-family: var(--mono); font-size: 11px; line-height: 1;
+  color: var(--txt-mute);
+  transition: color 0.15s;
+}
+.line-num.active { color: var(--accent); }
+
+textarea#editor {
+  flex: 1; min-width: 0;
+  padding: 16px 14px;
+  background: var(--surface);
+  color: var(--txt);
+  border: none; outline: none; resize: none;
+  font-family: var(--mono); font-size: 13px; line-height: 21px;
+  caret-color: var(--accent);
+  tab-size: 2;
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+textarea#editor::selection { background: #4fffb022; }
+textarea#editor::placeholder { color: var(--txt-mute); }
+
+/* ── OUTPUT PANE ────────────────────────────────────────── */
+.output-pane {
+  display: flex; flex-direction: column; min-height: 0;
+  overflow: hidden;
+}
+
+/* ── TABS ───────────────────────────────────────────────── */
+.tabs {
+  display: flex; align-items: stretch;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+.tab-btn {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px;
+  padding: 10px 16px;
+  background: transparent; border: none;
+  color: var(--txt-dim); cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s; white-space: nowrap;
+  display: flex; align-items: center; gap: 6px;
+}
+.tab-btn:hover { color: var(--txt); background: #ffffff05; }
+.tab-btn.active {
+  color: var(--accent); border-bottom-color: var(--accent);
+  background: #4fffb008;
+}
+.tab-badge {
+  font-size: 9px; padding: 1px 5px; border-radius: 10px;
+  background: var(--border2); color: var(--txt-dim);
+  transition: all 0.2s;
+}
+.tab-btn.active .tab-badge {
+  background: var(--accent); color: #050810;
+}
+.tab-badge.error { background: var(--warn); color: #fff; }
+
+/* ── EMPTY STATE ────────────────────────────────────────── */
+.empty-state {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px; color: var(--txt-mute);
+  font-family: var(--mono); font-size: 12px;
+}
+.empty-icon {
+  width: 48px; height: 48px; opacity: 0.2;
+}
+
+/* ── TAB PANELS ─────────────────────────────────────────── */
+.tab-panels {
+  flex: 1; overflow: hidden; min-height: 0;
+  position: relative;
+}
+.tab-panel {
+  display: none; height: 100%; overflow-y: auto; padding: 0;
+}
+.tab-panel.active { display: flex; flex-direction: column; }
+
+/* ── CODE BLOCKS ────────────────────────────────────────── */
+.code-block {
+  flex: 1; font-family: var(--mono); font-size: 12px; line-height: 1.8;
+  padding: 16px 20px;
+  white-space: pre;
+  overflow-x: auto;
+  color: var(--txt);
+}
+
+/* ── LISTING COLORS ─────────────────────────────────────── */
+.listing-line { color: var(--txt-dim); }
+.listing-error { color: var(--warn); font-weight: 700; }
+
+/* ── TOKENS TABLE ───────────────────────────────────────── */
+.tokens-table {
+  width: 100%; border-collapse: collapse;
+  font-family: var(--mono); font-size: 11px;
+}
+.tokens-table th {
+  background: var(--panel);
+  padding: 8px 16px; text-align: left;
+  font-size: 9px; letter-spacing: 2px;
+  color: var(--txt-dim); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0;
+}
+.tokens-table td {
+  padding: 5px 16px; border-bottom: 1px solid var(--border);
+  color: var(--txt);
+}
+.tokens-table tr:hover td { background: #ffffff04; }
+.token-type {
+  display: inline-block; font-size: 9px; letter-spacing: 1px;
+  padding: 2px 8px; border-radius: 3px;
+  background: var(--border); color: var(--txt-dim);
+}
+.token-type.KEYWORD { background: #c792ea22; color: var(--keyword); }
+.token-type.ID      { background: #82aaff22; color: var(--label); }
+.token-type.NUMBER  { background: #f78c6c22; color: var(--number); }
+.token-type.STRING  { background: #c3e88d22; color: var(--string); }
+.token-type.SYMBOL  { background: #89ddff22; color: var(--op); }
+
+/* ── ICG / TARGET ───────────────────────────────────────── */
+.icg-line, .asm-line {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 3px 20px;
+  transition: background 0.15s;
+}
+.icg-line:hover, .asm-line:hover { background: #ffffff04; }
+.line-no { color: var(--txt-mute); font-size: 10px; min-width: 28px; text-align: right; padding-top: 2px; }
+.icg-content { color: var(--txt); }
+.asm-content { color: var(--accent); }
+
+/* ── SYMBOL TABLE ───────────────────────────────────────── */
+.sym-table {
+  width: 100%; border-collapse: collapse;
+  font-family: var(--mono); font-size: 11px;
+}
+.sym-table th {
+  background: var(--panel);
+  padding: 8px 16px; text-align: left;
+  font-size: 9px; letter-spacing: 2px;
+  color: var(--txt-dim); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0;
+}
+.sym-table td {
+  padding: 6px 16px; border-bottom: 1px solid var(--border);
+}
+.sym-table tr:hover td { background: #ffffff04; }
+.sym-name { color: var(--label); }
+.sym-type { color: var(--number); }
+
+/* ── ERRORS ─────────────────────────────────────────────── */
+.errors-wrap { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.error-card {
+  background: var(--warn-dim);
+  border: 1px solid var(--warn);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  display: flex; align-items: flex-start; gap: 12px;
+  font-family: var(--mono); font-size: 12px; color: var(--warn);
+  animation: slideIn 0.2s ease;
+}
+@keyframes slideIn { from { opacity:0; transform: translateY(-4px); } }
+.error-icon { flex-shrink: 0; font-size: 14px; }
+.no-errors {
+  display: flex; align-items: center; gap: 10px;
+  margin: 16px; padding: 14px 18px;
+  background: #4fffb010; border: 1px solid #4fffb033;
+  border-radius: var(--radius);
+  font-family: var(--mono); font-size: 12px; color: var(--accent);
+}
+
+/* ── SCROLLBAR ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--txt-mute); }
+
+/* ── LOADING OVERLAY ────────────────────────────────────── */
+.compiling-bar {
+  position: fixed; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent));
+  background-size: 200%;
+  animation: barSlide 1s linear infinite;
+  z-index: 100; opacity: 0; transition: opacity 0.2s;
+}
+.compiling-bar.active { opacity: 1; }
+@keyframes barSlide { to { background-position: 200%; } }
+
+/* ── TOAST ──────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  font-family: var(--mono); font-size: 12px;
+  padding: 10px 18px; border-radius: var(--radius);
+  border: 1px solid; z-index: 200;
+  animation: toastIn 0.25s ease;
+  transition: opacity 0.4s;
+}
+.toast.ok  { background: #4fffb015; border-color: var(--accent); color: var(--accent); }
+.toast.err { background: var(--warn-dim); border-color: var(--warn); color: var(--warn); }
+@keyframes toastIn { from { opacity:0; transform: translateY(8px); } }
+
+/* ── STATS BAR ──────────────────────────────────────────── */
+.stats-bar {
+  display: flex; gap: 24px; padding: 8px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  flex-shrink: 0;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--txt-dim);
+}
+.stat { display: flex; align-items: center; gap: 6px; }
+.stat-val { color: var(--txt); font-weight: 700; }
+.stat-val.ok { color: var(--accent); }
+.stat-val.err { color: var(--warn); }
+</style>
+</head>
+
+<body>
+
+<div class="compiling-bar" id="compBar"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-mark">NX</div>
+    <div>
+      <div class="logo-text">NEXUS</div>
+      <div class="logo-sub">COMPILER PIPELINE</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="phase-pills">
+      <span class="pill" id="ph-lex">LEXER</span>
+      <span class="pill" id="ph-par">PARSER</span>
+      <span class="pill" id="ph-icg">ICG</span>
+      <span class="pill" id="ph-cg">CODEGEN</span>
+    </div>
+    <div class="header-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusTxt">READY</span>
+    </div>
+  </div>
+</header>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <span class="toolbar-label">EXAMPLES</span>
+  <button class="snippet-btn" onclick="loadSnippet('hello')">Hello World</button>
+  <button class="snippet-btn" onclick="loadSnippet('arithmetic')">Arithmetic</button>
+  <button class="snippet-btn" onclick="loadSnippet('ifelse')">If / Else</button>
+  <button class="snippet-btn" onclick="loadSnippet('while')">While Loop</button>
+  <button class="snippet-btn" onclick="loadSnippet('array')">Array</button>
+  <button class="snippet-btn" onclick="loadSnippet('error')">Error Demo</button>
+  <div class="spacer"></div>
+  <button class="compile-btn" onclick="compile()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <polygon points="5,3 19,12 5,21"/>
+    </svg>
+    RUN COMPILER
+  </button>
+</div>
+
+<!-- WORKSPACE -->
+<div class="workspace">
+
+  <!-- LEFT: SOURCE EDITOR -->
+  <div class="pane">
+    <div class="pane-header">
+      <div class="pane-icon" style="background:var(--accent2)"></div>
+      <span class="pane-title">Source Editor</span>
+      <span class="line-count" id="lineCount">0 lines</span>
+    </div>
+    <div class="editor-wrap">
+      <div class="line-nums" id="lineNums"></div>
+      <textarea id="editor" spellcheck="false"
+        placeholder="! Write your program here...&#10;program name;&#10;var&#10;  x : integer;&#10;begin&#10;  ...&#10;end"></textarea>
+    </div>
+  </div>
+
+  <!-- RIGHT: OUTPUT -->
+  <div class="pane output-pane">
+    <div class="tabs" id="tabs">
+      <button class="tab-btn active" data-tab="listing" onclick="switchTab('listing')">
+        LISTING <span class="tab-badge" id="b-listing">—</span>
+      </button>
+      <button class="tab-btn" data-tab="tokens" onclick="switchTab('tokens')">
+        TOKENS <span class="tab-badge" id="b-tokens">0</span>
+      </button>
+      <button class="tab-btn" data-tab="icg" onclick="switchTab('icg')">
+        3-ADDR CODE <span class="tab-badge" id="b-icg">0</span>
+      </button>
+      <button class="tab-btn" data-tab="asm" onclick="switchTab('asm')">
+        ASSEMBLY <span class="tab-badge" id="b-asm">0</span>
+      </button>
+      <button class="tab-btn" data-tab="symbols" onclick="switchTab('symbols')">
+        SYMBOLS <span class="tab-badge" id="b-symbols">0</span>
+      </button>
+      <button class="tab-btn" data-tab="errors" onclick="switchTab('errors')">
+        ERRORS <span class="tab-badge" id="b-errors">0</span>
+      </button>
+    </div>
+
+    <div class="tab-panels" id="tabPanels">
+      <!-- LISTING -->
+      <div class="tab-panel active" id="tab-listing">
+        <div class="empty-state" id="emptyListing">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <span>Compile to see the listing file</span>
+        </div>
+        <div class="code-block" id="listingOut" style="display:none;"></div>
+      </div>
+
+      <!-- TOKENS -->
+      <div class="tab-panel" id="tab-tokens">
+        <div class="empty-state" id="emptyTokens">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+          </svg>
+          <span>Compile to see tokens</span>
+        </div>
+        <table class="tokens-table" id="tokensTable" style="display:none;">
+          <thead><tr><th>#</th><th>LINE</th><th>TYPE</th><th>VALUE</th></tr></thead>
+          <tbody id="tokensBody"></tbody>
+        </table>
+      </div>
+
+      <!-- ICG -->
+      <div class="tab-panel" id="tab-icg">
+        <div class="empty-state" id="emptyIcg">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+          </svg>
+          <span>Compile to see three-address code</span>
+        </div>
+        <div id="icgOut" style="display:none; padding: 12px 0;"></div>
+      </div>
+
+      <!-- ASM -->
+      <div class="tab-panel" id="tab-asm">
+        <div class="empty-state" id="emptyAsm">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          <span>Assembly generated only when no errors</span>
+        </div>
+        <div id="asmOut" style="display:none; padding: 12px 0;"></div>
+      </div>
+
+      <!-- SYMBOLS -->
+      <div class="tab-panel" id="tab-symbols">
+        <div class="empty-state" id="emptySymbols">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+          </svg>
+          <span>Compile to see symbol table</span>
+        </div>
+        <table class="sym-table" id="symTable" style="display:none;">
+          <thead><tr><th>#</th><th>IDENTIFIER</th><th>TYPE</th></tr></thead>
+          <tbody id="symBody"></tbody>
+        </table>
+      </div>
+
+      <!-- ERRORS -->
+      <div class="tab-panel" id="tab-errors">
+        <div class="empty-state" id="emptyErrors">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span>Compile to see error report</span>
+        </div>
+        <div id="errorsOut" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- STATS BAR -->
+    <div class="stats-bar">
+      <span class="stat">TOKENS <span class="stat-val" id="s-tokens">—</span></span>
+      <span class="stat">TAC LINES <span class="stat-val" id="s-tac">—</span></span>
+      <span class="stat">ASM LINES <span class="stat-val" id="s-asm">—</span></span>
+      <span class="stat">ERRORS <span class="stat-val" id="s-errors">—</span></span>
+      <span class="stat" style="margin-left:auto">STATUS <span class="stat-val" id="s-status">—</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast" style="display:none;"></div>
+
+<script>
+/* ── SNIPPETS ──────────────────────────────────────────── */
+const SNIPPETS = {
+  hello: `program hello;
+begin
+  write('Hello, World');
+end`,
+
+  arithmetic: `program arithmetic;
+var
+  a : integer;
+  b : integer;
+  result : integer;
+begin
+  read(a);
+  read(b);
+  result := a + b * 2;
+  write(result);
+end`,
+
+  ifelse: `program ifdemo;
+var
+  x : integer;
+begin
+  read(x);
+  if x > 3 then
+    write('Big')
+  else
+    write('Small');
+end`,
+
+  while: `program counter;
+var
+  x : integer;
+begin
+  x := 5;
+  while x > 0 do
+    x := x - 1;
+  write(x);
+end`,
+
+  array: `program arrtest;
+var
+  i : integer;
+  data : array[5] of integer;
+begin
+  i := 0;
+  while i < 5 do
+    i := i + 1;
+  write(i);
+end`,
+
+  error: `program errordemo;
+var
+  x : integer;
+begin
+  x := @badchar;
+  if x then
+    write('ok')
+end`
+};
+
+function loadSnippet(key) {
+  document.getElementById('editor').value = SNIPPETS[key];
+  updateLineNums();
+}
+
+/* ── LINE NUMBERS ──────────────────────────────────────── */
+function updateLineNums() {
+  const ta = document.getElementById('editor');
+  const lines = ta.value.split('\n');
+  const curLine = ta.value.substr(0, ta.selectionStart).split('\n').length;
+  const nums = document.getElementById('lineNums');
+  nums.innerHTML = lines.map((_, i) =>
+    `<div class="line-num${i+1===curLine?' active':''}">${i+1}</div>`
+  ).join('');
+  document.getElementById('lineCount').textContent = `${lines.length} lines`;
+  // Sync scroll
+  nums.scrollTop = ta.scrollTop;
+}
+
+const editor = document.getElementById('editor');
+editor.addEventListener('input', updateLineNums);
+editor.addEventListener('click', updateLineNums);
+editor.addEventListener('keyup', updateLineNums);
+editor.addEventListener('scroll', () => {
+  document.getElementById('lineNums').scrollTop = editor.scrollTop;
+});
+editor.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = editor.selectionStart, end = editor.selectionEnd;
+    editor.value = editor.value.substring(0,s) + '  ' + editor.value.substring(end);
+    editor.selectionStart = editor.selectionEnd = s + 2;
+    updateLineNums();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); compile(); }
+});
+updateLineNums();
+
+/* ── TABS ──────────────────────────────────────────────── */
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelector(`[data-tab="${name}"]`).classList.add('active');
+}
+
+/* ── STATUS ────────────────────────────────────────────── */
+function setStatus(state, text) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusTxt');
+  dot.className = 'status-dot ' + state;
+  txt.textContent = text;
+}
+
+function setPhases(phases) {
+  ['lex','par','icg','cg'].forEach(p => {
+    document.getElementById('ph-' + p).classList.remove('active');
+  });
+  phases.forEach(p => document.getElementById('ph-' + p).classList.add('active'));
+}
+
+/* ── TOAST ─────────────────────────────────────────────── */
+let toastTimer;
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type;
+  t.style.display = 'block'; t.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.style.display='none',400); }, 3000);
+}
+
+/* ── COMPILE ───────────────────────────────────────────── */
+async function compile() {
+  const code = document.getElementById('editor').value.trim();
+  if (!code) { showToast('Editor is empty', 'err'); return; }
+
+  // Show loading
+  document.getElementById('compBar').classList.add('active');
+  setStatus('run', 'COMPILING...');
+  setPhases([]);
+
+  try {
+    const resp = await fetch('/compile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const data = await resp.json();
+    renderResults(data);
+  } catch (e) {
+    showToast('Server error: ' + e.message, 'err');
+    setStatus('err', 'ERROR');
+  } finally {
+    document.getElementById('compBar').classList.remove('active');
+  }
+}
+
+/* ── RENDER ────────────────────────────────────────────── */
+function renderResults(data) {
+  const hasErrors = data.errors && data.errors.length > 0;
+
+  // Status & phases
+  if (hasErrors) {
+    setStatus('err', `${data.errors.length} ERROR${data.errors.length>1?'S':''}`);
+    setPhases(['lex','par']);
+    showToast(`✕ ${data.errors.length} error(s) found`, 'err');
+  } else {
+    setStatus('ok', 'SUCCESS');
+    setPhases(['lex','par','icg','cg']);
+    showToast('✓ Compiled successfully', 'ok');
+  }
+
+  // ── LISTING ──
+  const listingEl = document.getElementById('listingOut');
+  const emptyL = document.getElementById('emptyListing');
+  if (data.listing) {
+    const lines = data.listing.split('\n');
+    listingEl.innerHTML = lines.map(l => {
+      if (l.includes('>> ERROR:')) {
+        return `<span class="listing-error">${escHtml(l)}</span>\n`;
+      }
+      return `<span class="listing-line">${escHtml(l)}</span>\n`;
+    }).join('');
+    listingEl.style.display = 'block';
+    emptyL.style.display = 'none';
+  }
+  document.getElementById('b-listing').textContent = data.listing ? data.listing.split('\n').length : '—';
+
+  // ── TOKENS ──
+  const tokBody = document.getElementById('tokensBody');
+  tokBody.innerHTML = '';
+  if (data.tokens && data.tokens.length) {
+    data.tokens.forEach((t, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td style="color:var(--txt-mute)">${i+1}</td>
+        <td>${t.line}</td>
+        <td><span class="token-type ${t.type}">${t.type}</span></td>
+        <td>${escHtml(String(t.value))}</td>`;
+      tokBody.appendChild(tr);
+    });
+    document.getElementById('tokensTable').style.display = 'table';
+    document.getElementById('emptyTokens').style.display = 'none';
+  }
+  document.getElementById('b-tokens').textContent = data.tokens ? data.tokens.length : 0;
+  document.getElementById('s-tokens').textContent = data.tokens ? data.tokens.length : '—';
+
+  // ── ICG ──
+  const icgOut = document.getElementById('icgOut');
+  if (data.icg && data.icg.length) {
+    icgOut.innerHTML = data.icg.map((line, i) =>
+      `<div class="icg-line"><span class="line-no">${i+1}</span><span class="icg-content">${escHtml(line)}</span></div>`
+    ).join('');
+    icgOut.style.display = 'block';
+    document.getElementById('emptyIcg').style.display = 'none';
+  } else {
+    icgOut.style.display = 'none';
+    document.getElementById('emptyIcg').style.display = 'flex';
+  }
+  document.getElementById('b-icg').textContent = data.icg ? data.icg.length : 0;
+  document.getElementById('s-tac').textContent = data.icg ? data.icg.length : '—';
+
+  // ── ASSEMBLY ──
+  const asmOut = document.getElementById('asmOut');
+  if (data.target && data.target.length) {
+    asmOut.innerHTML = data.target.map((line, i) => {
+      const isLabel = line.trim().endsWith(':');
+      const isComment = line.trim().startsWith(';');
+      const color = isLabel ? 'var(--label)' : isComment ? 'var(--comment)' : 'var(--accent)';
+      return `<div class="asm-line"><span class="line-no">${i+1}</span><span class="asm-content" style="color:${color}">${escHtml(line)}</span></div>`;
+    }).join('');
+    asmOut.style.display = 'block';
+    document.getElementById('emptyAsm').style.display = 'none';
+  } else {
+    asmOut.style.display = 'none';
+    document.getElementById('emptyAsm').style.display = 'flex';
+  }
+  document.getElementById('b-asm').textContent = data.target ? data.target.length : 0;
+  document.getElementById('s-asm').textContent = data.target ? data.target.length : '—';
+
+  // ── SYMBOL TABLE ──
+  const symBody = document.getElementById('symBody');
+  symBody.innerHTML = '';
+  if (data.symbol_table && data.symbol_table.length) {
+    data.symbol_table.forEach(([name, type], i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td style="color:var(--txt-mute)">${i+1}</td>
+        <td class="sym-name">${escHtml(name)}</td>
+        <td class="sym-type">${escHtml(type)}</td>`;
+      symBody.appendChild(tr);
+    });
+    document.getElementById('symTable').style.display = 'table';
+    document.getElementById('emptySymbols').style.display = 'none';
+  }
+  document.getElementById('b-symbols').textContent = data.symbol_table ? data.symbol_table.length : 0;
+
+  // ── ERRORS ──
+  const errOut = document.getElementById('errorsOut');
+  const errBadge = document.getElementById('b-errors');
+  if (hasErrors) {
+    errOut.innerHTML = `<div class="errors-wrap">${
+      data.errors.map(e =>
+        `<div class="error-card"><span class="error-icon">⚠</span><span>${escHtml(e)}</span></div>`
+      ).join('')
+    }</div>`;
+    errBadge.className = 'tab-badge error';
+    errOut.style.display = 'block';
+    document.getElementById('emptyErrors').style.display = 'none';
+  } else {
+    errOut.innerHTML = `<div class="no-errors">✓ No errors — compilation successful</div>`;
+    errBadge.className = 'tab-badge';
+    errOut.style.display = 'block';
+    document.getElementById('emptyErrors').style.display = 'none';
+  }
+  errBadge.textContent = data.errors ? data.errors.length : 0;
+  document.getElementById('s-errors').textContent = data.errors ? data.errors.length : '—';
+  document.getElementById('s-errors').className = 'stat-val ' + (hasErrors ? 'err' : 'ok');
+  document.getElementById('s-status').textContent = hasErrors ? 'FAILED' : 'OK';
+  document.getElementById('s-status').className = 'stat-val ' + (hasErrors ? 'err' : 'ok');
+
+  // Auto-switch to errors tab if errors
+  if (hasErrors) switchTab('errors');
+  else switchTab('listing');
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// Load hello world by default
+loadSnippet('hello');
+</script>
+</body>
+</html>
