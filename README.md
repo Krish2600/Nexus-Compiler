@@ -16,6 +16,17 @@ Source Code → Lexer → Tokens → Parser → TAC (IR) → CodeGen → Pseudo 
 
 Every phase — from the character-level scanner to the assembly emitter — is hand-written, making each design decision explicit. The system is delivered as a browser-accessible app: write code in the editor, click **Run Compiler**, and watch tokens, the annotated listing, the symbol table, three-address code, and generated assembly render simultaneously.
 
+## Screenshots
+
+**Main interface — source editor with example programs**
+![NEXUS main UI](screenshots/ui-main.png)
+
+**Compilation output — tokens, TAC, and assembly tabs**
+![NEXUS output tabs](screenshots/ui-output.png)
+
+**Error detection and listing view**
+![NEXUS error handling](screenshots/ui-errors.png)
+
 ## Features
 
 - **Hand-written lexer** — finite-automaton-style scanner supporting 5 token classes, inline comments (`!`), string escape sequences (`\n`, `\t`), and 4 distinct error types with line-numbered reporting
