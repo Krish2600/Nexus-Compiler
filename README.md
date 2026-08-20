@@ -5,7 +5,6 @@ A complete four-stage compiler for a Pascal-like Domain-Specific Language (DSL),
 
 
 
-
 ## Overview
 
 NEXUS accepts a structured, Pascal-inspired procedural language and translates it through four classical compiler stages:
@@ -19,13 +18,13 @@ Every phase — from the character-level scanner to the assembly emitter — is 
 ## Screenshots
 
 **Main interface — source editor with example programs**
-![NEXUS main UI](screenshots/ui-main.png)
+![NEXUS main UI](Screenshots/ui-main.png)
 
 **Compilation output — tokens, TAC, and assembly tabs**
-![NEXUS output tabs](screenshots/ui-output.png)
+![NEXUS output tabs](Screenshots/ui-output.png)
 
 **Error detection and listing view**
-![NEXUS error handling](screenshots/ui-errors.png)
+![NEXUS error handling](Screenshots/ui-errors.png)
 
 ## Features
 
