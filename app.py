@@ -1,3 +1,4 @@
+import os
 from flask import Flask, render_template, request, jsonify
 from compiler_logic import run_compiler
 
@@ -11,7 +12,7 @@ def index():
 
 @app.route("/compile", methods=["POST"])
 def compile_route():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     source = data.get("code", "")
 
     token_list, listing, icg, target, errors, symbol_table = run_compiler(source)
@@ -28,4 +29,6 @@ def compile_route():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, use_reloader=False)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+
