@@ -1,7 +1,7 @@
 <h1 align="center">⚙️ NEXUS Compiler Pipeline</h1>
 
 <p align="center">
-  <b>A complete four-stage compiler for a Pascal-like Domain-Specific Language (DSL), built entirely from scratch in Python.</b>
+  <b>A complete four-stage compiler for a Pascal-like Domain-Specific Language (DSL), built in Python.</b>
 </p>
 
 <p align="center">
