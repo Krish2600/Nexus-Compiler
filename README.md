@@ -1,19 +1,42 @@
-# NEXUS Compiler Pipeline
+<h1 align="center">⚙️ NEXUS Compiler Pipeline</h1>
 
-A complete four-stage compiler for a Pascal-like Domain-Specific Language (DSL), built entirely from scratch in Python — no Lex/Yacc, no ANTLR. NEXUS performs lexical analysis, recursive descent parsing, three-address code (TAC) generation, and pseudo x86 assembly code generation, with a real-time Flask + JavaScript web UI to inspect every stage of compilation as it happens.
+<p align="center">
+  <b>A complete four-stage compiler for a Pascal-like Domain-Specific Language (DSL), built entirely from scratch in Python.</b>
+</p>
 
+<p align="center">
+  A browser-based compiler that performs <b>lexical analysis</b>,
+  <b>recursive descent parsing</b>, <b>three-address code generation</b>,
+  and <b>pseudo x86 assembly generation</b>.
+</p>
 
+<p align="center">
+  🚀 <b>Live Demo</b>
+</p>
 
+<p align="center">
+  🌐 <a href="https://nexuscompiler.vercel.app/"><b>Try NEXUS Compiler</b></a>
+</p>
 
-## Overview
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.x-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.x" />
+  <img src="https://img.shields.io/badge/Flask-3.x-000000?style=flat-square&logo=flask&logoColor=white" alt="Flask" />
+  <img src="https://img.shields.io/badge/Compiler-Design-6A1B9A?style=flat-square" alt="Compiler Design" />
+  <img src="https://img.shields.io/badge/Parser-Recursive%20Descent-1565C0?style=flat-square" alt="Recursive Descent Parser" />
+  <img src="https://img.shields.io/badge/IR-Three--Address%20Code-00897B?style=flat-square" alt="Three Address Code" />
+  <img src="https://img.shields.io/badge/Assembly-Pseudo%20x86-D84315?style=flat-square" alt="Pseudo x86 Assembly" />
+</p>
 
-NEXUS accepts a structured, Pascal-inspired procedural language and translates it through four classical compiler stages:
+---
 
-```
+## 📌 Overview
+
+**NEXUS Compiler Pipeline** is a complete four-stage compiler for a Pascal-like Domain-Specific Language (DSL), built entirely from scratch in Python — **without Lex/Yacc or ANTLR**.
+
+NEXUS translates source code through the complete compilation pipeline:
+
+```text
 Source Code → Lexer → Tokens → Parser → TAC (IR) → CodeGen → Pseudo x86 Assembly
-```
-
-Every phase — from the character-level scanner to the assembly emitter — is hand-written, making each design decision explicit. The system is delivered as a browser-accessible app: write code in the editor, click **Run Compiler**, and watch tokens, the annotated listing, the symbol table, three-address code, and generated assembly render simultaneously.
 
 ## Screenshots
 
