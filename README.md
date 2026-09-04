@@ -37,6 +37,7 @@ NEXUS translates source code through the complete compilation pipeline:
 
 ```text
 Source Code → Lexer → Tokens → Parser → TAC (IR) → CodeGen → Pseudo x86 Assembly
+```
 
 ## Screenshots
 
